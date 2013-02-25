@@ -22,4 +22,7 @@ $uploaddirwww="data/files/"; /* how to access uploaded files from web browser (m
 $dbfile="$scriptdir/data/itdb.db"; /* sqlite db file */
 $demomode=0;
 
+if (file_exists('server.local.php')) {
+	include_once('server.local.php');
+}
 ?>
