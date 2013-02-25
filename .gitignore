@@ -1,3 +1,4 @@
 *.swp
-data/files/*
+data/files
 data/itdb.db
+server.local.php
