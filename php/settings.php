@@ -3,9 +3,14 @@
 $(document).ready(function() {
 
 
+
+<?php
+if (isset($_POST['dateformat']) ) { //if we came from a post (save), refresh to show new language
+	echo "window.location=window.location;";
+}
+?>
+
 });
-
-
 </SCRIPT>
 <?php 
 
@@ -15,7 +20,15 @@ if(!isset($userdata) || $userdata[0]['usertype'] == 1) { echo "You must have Adm
 /* Spiros Ioannou 2009-2010 , sivann _at_ gmail.com */
 
 if (isset($_POST['dateformat']) ) { //if we came from a post (save), update the rack 
-  $sql="UPDATE settings set companytitle='".$_POST['companytitle']."', dateformat='".$_POST['dateformat']."', currency='".$_POST['currency']."',".
+  $sql="UPDATE settings set companytitle='".trim($_POST['companytitle']).
+  "', dateformat='".$_POST['dateformat'].
+  "', currency='".$_POST['currency'].
+  "', useldap='".$_POST['useldap'].
+  "', ldap_server='".trim($_POST['ldap_server']).
+  "', ldap_dn='".trim($_POST['ldap_dn']).
+  "', ldap_getusers='".trim($_POST['ldap_getusers']).
+  "', ldap_getusers_filter='".trim($_POST['ldap_getusers_filter']).
+  "',".
        " lang='".$_POST['lang']."', ".
        //" switchmapenable='".$_POST['switchmapenable']."', switchmapdir='".$_POST['switchmapdir']."',".
        //" timeformat='".$_POST['timeformat']."', ".
@@ -61,45 +74,50 @@ echo "\n<h1>".t("Settings")."</h1>\n";
     <tr><td class="tdt"><?php te("Currency")?></td><td>
 
     <select  name='currency'>
-      <?php if ($settings['currency']=="&amp;euro;") $s="SELECTED"; else $s="" ?>
+      <?php if ($settings['currency']=="&euro;") $s="SELECTED"; else $s="" ?>
       <option <?php echo $s?> title='Euro' value='<?php echo htmlentities("&euro;");?>'>&euro;</option>
 
       <?php if ($settings['currency']=="$") $s="SELECTED"; else $s="" ?>
       <option <?php echo $s?> title='Dollar' value='<?php echo htmlentities("$");?>'>$</option>
 
-      <?php if ($settings['currency']=="&amp;pound;") $s="SELECTED"; else $s="" ?>
+      <?php if ($settings['currency']=="&pound;") $s="SELECTED"; else $s="" ?>
       <option <?php echo $s?> title='Pound' value='<?php echo htmlentities("&pound;");?>'>&pound;</option>
 
-      <?php if ($settings['currency']=="&amp;yen;") $s="SELECTED"; else $s="" ?>
+      <?php if ($settings['currency']=="&yen;") $s="SELECTED"; else $s="" ?>
       <option <?php echo $s?> title='Yen' value='<?php echo htmlentities("&yen;");?>'>&yen;</option>
 
-      <?php if ($settings['currency']=="&amp;#8361;") $s="SELECTED"; else $s="" ?>
+      <?php if ($settings['currency']=="&#8361;") $s="SELECTED"; else $s="" ?>
       <option <?php echo $s?> title='Won' value='<?php echo htmlentities("&#8361;");?>'>&#8361;</option>
 
-      <?php if ($settings['currency']=="&amp;#8360;") $s="SELECTED"; else $s="" ?>
+      <?php if ($settings['currency']=="&#8360;") $s="SELECTED"; else $s="" ?>
       <option <?php echo $s?> title='Rupee' value='<?php echo htmlentities("&#8360;");?>'>&#8360;</option>
 
-      <?php if ($settings['currency']=="&amp;#8377;") $s="SELECTED"; else $s="" ?>
+      <?php if ($settings['currency']=="&#8377;") $s="SELECTED"; else $s="" ?>
       <option <?php echo $s?> title='Indian Rupee' value='<?php echo htmlentities("&#8377;");?>'>&#8377;</option>
 
-      <?php if ($settings['currency']=="&amp;#20803;") $s="SELECTED"; else $s="" ?>
+      <?php if ($settings['currency']=="&#20803;") $s="SELECTED"; else $s="" ?>
       <option <?php echo $s?> title='Yuan' value='<?php echo htmlentities("&#20803;");?>'>&#20803;</option>
 
-      <?php if ($settings['currency']=="&amp;#65020;") $s="SELECTED"; else $s="" ?>
+      <?php if ($settings['currency']=="&#65020;") $s="SELECTED"; else $s="" ?>
       <option <?php echo $s?> title='Rial' value='<?php echo htmlentities("&#65020;");?>'>&#65020;</option>
+
+      <?php if ($settings['currency']=="Ft") $s="SELECTED"; else $s="" ?>
+      <option <?php echo $s?> title='Forint' value='<?php echo htmlentities("&#65020;");?>'>Ft</option>
+
     </select></td></tr>
     <tr><td class="tdt"><?php te("Interface Language")?></td><td>
     <select  name='lang'>
       <?php if ($settings['lang']=="en") $s="SELECTED"; else $s="" ?>
       <option <?php echo $s?> value='en'>en</option>
-      <?
+      <?php
       $tfiles=scandir("translations/");
       foreach ($tfiles as $f) {
-        if (strstr($f,"txt") && (!strstr($f,"new")) && (!strstr($f,"missing"))) {
-	  $bf=basename($f,".txt");
-	  if ($settings['lang']=="$bf") $s="SELECTED"; else $s="" ;
-	  echo "<option $s value='$bf'>$bf</option>\n";
-	}
+		  $f=strtolower($f);
+		  if (strstr($f,"txt") && (!strstr($f,"new")) && (!strstr($f,"missing"))) {
+			  $bf=basename($f,".txt");
+			  if ($settings['lang']=="$bf") $s="SELECTED"; else $s="" ;
+			  echo "<option $s value='$bf'>$bf</option>\n";
+		  }
       }
       ?>
     </select>
@@ -141,6 +159,26 @@ echo "\n<h1>".t("Settings")."</h1>\n";
     <tr><td class="tdt" title='Provide the full path to the switches directory within the SwitchMap directory.'><?php te("Path To Switchmap");?>:</td><td><input  class='input2 ' size=20 type=text name='switchmapdir' value="<?php echo $settings['switchmapdir']?>"></td></tr>
 
 -->
+    <tr><td class="tdt"><?php te("Use LDAP");?>:</td> 
+        <td><select  name='useldap'>
+        <?php
+        if ($settings['useldap']==1) $s1='SELECTED';
+        else $s1='';
+        ?>
+        <option value=0><?=t('No')?></option>
+        <option <?=$s1?> value=1><?=t('Yes')?></option>
+        </select>
+        (for authentication only, except user admin which is local)</td></tr>
+
+    <tr><td class="tdt"><?php te("LDAP Server");?>:</td> 
+        <td><input  class='input2 ' size=20 type=text name='ldap_server' value="<?php echo $settings['ldap_server']?>"> e.g.: ldap.mydomain.com</td></tr>
+    <tr><td class="tdt"><?php te("LDAP DN");?>:</td> 
+        <td><input  class='input2 ' size=20 type=text name='ldap_dn' value="<?php echo $settings['ldap_dn']?>"> For user authentication.e.g.: ou=People,dc=mydomain,dc=com</td></tr>
+    <tr><td class="tdt"><?php te("LDAP Search for users");?>:</td> 
+        <td><input  class='input2 ' size=20 type=text name='ldap_getusers' value="<?php echo $settings['ldap_getusers']?>"> e.g.: ou=People,dc=mydomain,dc=com</td></tr>
+    <tr><td class="tdt"><?php te("LDAP User filter");?>:</td> 
+        <td><input  class='input2 ' size=20 type=text name='ldap_getusers_filter' value="<?php echo $settings['ldap_getusers_filter']?>"> e.g.: (&amp; (uid=*) (IsActive=TRUE))</td></tr>
+
 
 <tr>
 <td colspan=2>

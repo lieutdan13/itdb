@@ -12,7 +12,30 @@ if (!isset($_POST['imfn']))
 else
 	$imfn=$_POST['imfn'];
 
-$nfields=13;
+
+/* csv field number to name mapping */
+$fno2name=array(
+/*0*/    'label',
+/*1*/    'location',
+/*2*/    'area',
+/*3*/    'owner',
+/*4*/    'status',
+/*5*/    'dnsname',
+/*6*/    'ipv4',
+/*7*/    'comments',
+/*8*/    'manufacturer',
+/*9*/    'model',
+/*10*/   'sn',
+/*11*/   'itemtype',
+/*12*/   'function',
+/*13*/   'cpu',
+/*14*/   'ram',
+/*15*/   'hd',
+);
+
+$name2fno=array_flip($fno2name);
+
+$nfields=count($fno2name);
 
 
 //nextstep:
@@ -21,23 +44,6 @@ $nfields=13;
 //2: DB insert
 
 //echo "<p>NEXT1=$nextstep<br>";
-
-function lineok ($line,$delim) {
-	$cols=explode($delim,$line);
-	if (!strlen($cols[6])  //ip
-		&& !strlen($cols[8]) //manufact
-		&& !strlen($cols[9])) { //model
-		echo "Skipping semi-empty line ($line)<br>";
-		return 0;
-	}
-	return 1;
-}
-
-function array_iunique($array) {
-	    return array_intersect_key($array,array_unique(
-		                 array_map(strtolower,$array)));
-}
-
 
 if ($nextstep==1 && strlen($_FILES['file']['name'])>2) { //insert file
   $filefn=strtolower("import-".$_COOKIE["itdbuser"]."-".validfn($_FILES['file']['name']));
@@ -79,10 +85,24 @@ if ($nextstep==1 && strlen($_FILES['file']['name'])>2) { //insert file
 <tr><td>File:</td><td> <input name="file" id="file" size="25" type="file"></td></tr>
 <tr><td>Delimeter:</td><td> <input size=1 type=text name='delim' value=';' maxlength=1></td></tr>
 <tr><td>Skip 1st row:</td><td><select name=skip1st><option value=1>Yes</option><option value=0>No</option></select></td></tr>
-<tr><td colspan=2><input type=submit value='Upload and inspect file'></td></tr>
+<tr><td colspan=2><input type=submit value='Upload file and inspect fields'></td></tr>
 <input type=hidden name='nextstep' value='1'>
 <input type=hidden name='imfn' value='<?=$imfn?>'>
 </form>
+<p>
+Expected format is CSV file with the following fields:<br>
+<big>
+<p>
+    <?php
+    $sep="";
+    foreach ($fno2name as $name) {
+        echo $sep.ucfirst($name);
+        $sep=",";
+    }
+    ?>
+    </big>
+    </p>
+<br>
 <?php }?>
 
 <?php if ($nextstep==1) { 
@@ -94,11 +114,16 @@ if ($nextstep==1 && strlen($_FILES['file']['name'])>2) { //insert file
 	<div style='height:400px;overflow:auto'>
 	<table class='brdr sortable'>
 	<thead>
-	<th>Building</th><th>Area/Room</th><th>Owner</th><th>Status</th><th>DNS Hostname</th><th>IPv4</th><th>OS</th><th>Manufacturer</th><th>Model</th><th>SN</th><th>SN2</th><th>Comments</th><th>Item Type</th></tr>
+    <tr>
+    <?php
+    foreach ($fno2name as $name)
+        echo "<th>$name</th>\n";
+    ?>
+    </tr>
 	</thead>
 	<tbody>
 
-	<?
+	<?php
 	foreach ($imlines as $line_num => $line) {
 		if ($line_num==0 && $_POST['skip1st']) 
 			continue;
@@ -118,36 +143,38 @@ if ($nextstep==1 && strlen($_FILES['file']['name'])>2) { //insert file
 		//echo "Line #<b>{$line_num}</b> : " . htmlspecialchars($line) . "<br />\n";
 
 		//hw manufacturer
-		if (gethwmanufacturerbyname($cols[8])>=0) 
-			$hwman_old[]=trim($cols[8]);
+		if (gethwmanufacturerbyname($cols[$name2fno['manufacturer']])>=0) 
+			$hwman_old[]=trim($cols[$name2fno['manufacturer']]);
 		else 
-			$hwman_new[]=trim($cols[8]);
+			$hwman_new[]=trim($cols[$name2fno['manufacturer']]);
+
+        //echo "HERE:\n"; print_r($hwman_new); echo "col:<br>\n"; print_r($cols); echo "<br>";
 
 		//users
-		if (getuserbyname($cols[2])>=0) 
-			$user_old[]=trim($cols[2]);
-		elseif (strlen(trim($cols[2])))
-			$user_new[]=trim($cols[2]);
+		if (getuserbyname($cols[$name2fno['owner']])>=0) 
+			$user_old[]=trim($cols[$name2fno['owner']]);
+		elseif (strlen(trim($cols[$name2fno['owner']])))
+			$user_new[]=trim($cols[$name2fno['owner']]);
 
 		//itemtypes
-		if (getitemtypeidbyname($cols[12])>=0) 
-			$itypes_old[]=trim($cols[12]);
-		elseif (strlen(trim($cols[12])))
-			$itypes_new[]=trim($cols[12]);
+		if (getitemtypeidbyname($cols[$name2fno['itemtype']])>=0) 
+			$itypes_old[]=trim($cols[$name2fno['itemtype']]);
+		elseif (strlen(trim($cols[$name2fno['itemtype']])))
+			$itypes_new[]=trim($cols[$name2fno['itemtype']]);
 
 		//statustypes
-		if (getstatustypeidbyname($cols[3])>=0) 
-			$stypes_old[]=trim($cols[3]);
-		elseif (strlen(trim($cols[3])))
-			$stypes_new[]=trim($cols[3]);
+		if (getstatustypeidbyname($cols[$name2fno['status']])>=0) 
+			$stypes_old[]=trim($cols[$name2fno['status']]);
+		elseif (strlen(trim($cols[$name2fno['status']])))
+			$stypes_new[]=trim($cols[$name2fno['status']]);
 
 		//locations/areas
-		$lr=getlocidsbynames($cols[0],$cols[1]);
+		$lr=getlocidsbynames($cols[$name2fno['location']],$cols[$name2fno['area']]);
 		if ($lr[0]>=0)
-			$loc_old[]=trim($cols[0]." - ".$cols[1]);
+			$loc_old[]=trim($cols[$name2fno['location']]." - ".$cols[$name2fno['area']]);
 		else  {
-			$loc_new[]=array('loc'=>trim($cols[0]),'area'=>($cols[1])); 
-			$loc_new2[]=trim($cols[0]." : ".$cols[1]);
+			$loc_new[]=array('loc'=>trim($cols[$name2fno['location']]),'area'=>($cols[$name2fno['area']])); 
+			$loc_new2[]=trim($cols[$name2fno['location']].":".$cols[$name2fno['area']]);
 		}
 
 	}
@@ -182,6 +209,7 @@ if ($nextstep==1 && strlen($_FILES['file']['name'])>2) { //insert file
 		<hr>
 		<?php
 		$itypes_new=array_iunique($itypes_new,SORT_STRING);
+        if (count($itypes_new))
 		foreach ($itypes_new as $itype)
 			echo "$itype<br>\n";
 		?>
@@ -227,7 +255,7 @@ if ($nextstep==1 && strlen($_FILES['file']['name'])>2) { //insert file
 		</form>
 	</div>
 
-<?
+<?php
 }
 
 if ($nextstep==2) {
@@ -241,37 +269,37 @@ if ($nextstep==2) {
 
 		$cols=explode($delim,$line);
 		//hw manufacturer
-		if (gethwmanufacturerbyname($cols[8])>=0) 
-			$hwman_old[]=trim($cols[8]);
+		if (gethwmanufacturerbyname($cols[$name2fno['manufacturer']])!=-1) 
+			$hwman_old[]=trim($cols[$name2fno['manufacturer']]);
 		else 
-			$hwman_new[]=trim($cols[8]);
+			$hwman_new[]=trim($cols[$name2fno['manufacturer']]);
 
 		//users
-		if (getuserbyname($cols[2])>=0) 
-			$user_old[]=trim($cols[2]);
+		if (getuserbyname($cols[$name2fno['owner']])!=-1) 
+			$user_old[]=trim($cols[$name2fno['owner']]);
 		else 
-			$user_new[]=trim($cols[2]);
+			$user_new[]=trim($cols[$name2fno['owner']]);
 
 
 		//itemtypes
-		if (getitemtypeidbyname($cols[12])>=0) 
-			$itypes_old[]=trim($cols[12]);
+		if (getitemtypeidbyname($cols[$name2fno['itemtype']])>=0) 
+			$itypes_old[]=trim($cols[$name2fno['itemtype']]);
 		else 
-			$itypes_new[]=trim($cols[12]);
+			$itypes_new[]=trim($cols[$name2fno['itemtype']]);
 
 		//statustypes
-		if (getstatustypeidbyname($cols[3])>=0) 
-			$stypes_old[]=trim($cols[3]);
+		if (getstatustypeidbyname($cols[$name2fno['status']])>=0) 
+			$stypes_old[]=trim($cols[$name2fno['status']]);
 		else 
-			$stypes_new[]=trim($cols[3]);
+			$stypes_new[]=trim($cols[$name2fno['status']]);
 
 		//locations/areas
-		$lr=getlocidsbynames($cols[0],$cols[1]);
+		$lr=getlocidsbynames($cols[$name2fno['location']],$cols[$name2fno['area']]);
 
 		if ($lr[0]>=0) 
-			$loc_old[]=trim($cols[0]." - ".$cols[1]);
+			$loc_old[]=trim($cols[$name2fno['location']]." - ".$cols[$name2fno['area']]);
 		else 
-			$loc_new[]=array('loc'=>trim($cols[0]),'area'=>($cols[1])); 
+			$loc_new[]=array('loc'=>trim($cols[$name2fno['location']]),'area'=>($cols[$name2fno['area']])); 
 	}
 
 
@@ -279,8 +307,9 @@ if ($nextstep==2) {
 	$hwman_new=array_iunique($hwman_new,SORT_STRING);
 	foreach ($hwman_new as $hwm) {
 		$hwm=ucfirst($hwm);
-		$sql="INSERT into agents (type,title) VALUEs ('8','$hwm')";
-		 db_exec($dbh,$sql);
+
+		$sql="INSERT into agents (type,title) VALUEs ('8',:hwm)";
+        $stmt=db_execute2($dbh,$sql,array('hwm'=>$hwm));
 	}
 
 	//add users
@@ -288,16 +317,16 @@ if ($nextstep==2) {
 
 	foreach ($user_new as $usr) {
 		$usr=strtolower($usr);
-		$sql="INSERT into users (username,usertype) VALUEs ('$usr',1)";
-		 db_exec($dbh,$sql);
+		$sql="INSERT into users (username,usertype) VALUEs (:usr,1)";
+        $stmt=db_execute2($dbh,$sql,array('usr'=>$usr));
 	}
 
 	//item types
 	$itypes_new=array_iunique($itypes_new,SORT_STRING);
 	foreach ($itypes_new as $itype) {
 		$itype=strtolower($itype);
-		$sql="INSERT into itemtypes (typedesc,hassoftware) VALUEs ('$itype',1)";
-		 db_exec($dbh,$sql);
+		$sql="INSERT into itemtypes (typedesc,hassoftware) VALUEs (:itype,1)";
+        $stmt=db_execute2($dbh,$sql,array('itype'=>$itype));
 	}
 
 	//addlocations/locareas
@@ -306,15 +335,15 @@ if ($nextstep==2) {
 		$locarea=$loca['area'];
 		//insert location if not already there
 		$sql="INSERT INTO locations (name)
-		SELECT '$location' WHERE NOT EXISTS (SELECT 1 FROM locations WHERE name = '$location')";
-		db_exec($dbh,$sql);
+            SELECT :location WHERE NOT EXISTS (SELECT 1 FROM locations WHERE name = :location)";
+        $stmt=db_execute2($dbh,$sql,array('location'=>$location));
 
 		//insert locareaid
 		$lr=getlocidsbynames($location,$locarea);
-		if ($lr[0]<0) {
+		if ($lr[0]<0 && strlen($locarea)) {
 			$sql="INSERT INTO locareas (areaname,locationid) ".
-			"values ('$locarea', (SELECT id FROM locations WHERE name = '$location')) ";
-			db_exec($dbh,$sql);
+			"values (:locarea, (SELECT id FROM locations WHERE name = :location)) ";
+            $stmt=db_execute2($dbh,$sql,array('locarea'=>$locarea,'location'=>$location));
 		}
 	}
 
@@ -331,9 +360,9 @@ if ($nextstep==2) {
 
 		$cols=explode($delim,$item);
 
-		$lr=getlocidsbynames($cols[0],$cols[1]);
+		$lr=getlocidsbynames($cols[$name2fno['location']],$cols[$name2fno['area']]);
 		if ($lr[0]<0) {
-			echo "Location/locarea non existent: {$cols[0]}/{$cols[1]}<br>";
+			echo "Location/locarea non existent: {$cols[$name2fno['location']]}/{$cols[$name2fno['area']]}<br>";
 			$locid="";
 			$locareaid="";
 		}
@@ -343,28 +372,82 @@ if ($nextstep==2) {
 		}
 		//echo "<br>LR:{$cols[0]},{$cols[1]}=";print_r($lr); echo "<br>";
 
+		$userid=getuseridbyname($cols[$name2fno['owner']]);
+		$ipv4=$cols[$name2fno['ipv4']];
+		$dnsname=$cols[$name2fno['dnsname']];
+		$comments=$cols[$name2fno['comments']];
+		$manufacturerid=getagentidbyname($cols[$name2fno['manufacturer']]);
+		$model=$cols[$name2fno['model']];
+		$sn=$cols[$name2fno['sn']];
+        $ispart=0;
+        $rackmountable=0;
+		$itemtypeid=getitemtypeidbyname($cols[$name2fno['itemtype']]);
+		$status=getstatustypeidbyname($cols[$name2fno['status']]);
+        $label=$cols[$name2fno['label']];
+		$function=$cols[$name2fno['function']];
+		$cpu=$cols[$name2fno['cpu']];
+		$ram=$cols[$name2fno['ram']];
 
 
-		$sql="INSERT into items (userid,ipv4,dnsname,comments,manufacturerid,model,sn,ispart,rackmountable,itemtypeid,status,locationid,locareaid) VALUEs (".
-		getuseridbyname($cols[2]).",". //username
-		"'".$cols[6]."',".
-		"'".$cols[4]."',".
-		"'".$cols[11]."',".
-		getagentidbyname($cols[8]).",". //manuf
-		"'".$cols[9]."',". //model
-		"'".$cols[10]."',". //sn
-		"0,". //ispart
-		"0,". //rackmountable
-		getitemtypeidbyname($cols[12]).",".
-		getstatustypeidbyname($cols[3]).",".
-		"'$locid','$locareaid'".
-		")";
 
-		 db_exec($dbh,$sql);
+
+		$sql="INSERT into items ".
+             "(userid,ipv4,dnsname,comments,manufacturerid,model,sn,ispart,rackmountable,itemtypeid,status,locationid,locareaid,label,function) ".
+             " VALUES ".
+             "(:userid,:ipv4,:dnsname,:comments,:manufacturerid,:model,:sn,:ispart,:rackmountable,:itemtypeid,:status,:locationid,:locareaid,:label,:function)";
+
+        $stmt=db_execute2($dbh,$sql,
+            array(
+            'userid'=>$userid,
+            'ipv4'=>$ipv4,
+            'dnsname'=>$dnsname,
+            'comments'=>$comments,
+            'manufacturerid'=>$manufacturerid,
+            'model'=>$model,
+            'sn'=>$sn,
+            'ispart'=>$ispart,
+            'rackmountable'=>$rackmountable,
+            'itemtypeid'=>$itemtypeid,
+            'status'=>$status,
+            'locationid'=>$locationid,
+            'locareaid'=>$locareaid,
+            'label'=>$label,
+            'function'=>$function,
+            )
+        );
 		 //echo "<br>Isql=$sql<br>";
 	}
 
-	echo "<br><h2>Finished.</h2>";
+	echo "\n<br><h2>Finished.</h2>\n";
+}
+
+
+function lineok ($line,$delim) {
+    global $fno2name,$name2fno;
+
+	$cols=explode($delim,$line);
+
+	if (!strlen($cols[$name2fno['ip']])  //ip
+		&& !strlen($cols[$name2fno['manufacturer']]) //manufact
+		&& !strlen($cols[$name2fno['model']])) { //model
+        echo "\n";
+		echo "Skipping semi-empty line ($line)<br>";
+        echo "Manuf: {$cols[$name2fno['manufacturer']]} <br>";
+        echo "Model: {$cols[$name2fno['model']]} <br>";
+        echo "Delim:$delim<br>\n";
+        echo "cols:".print_r($cols)."<br>";
+		return 0;
+	}
+	return 1;
+}
+
+function array_iunique($array) {
+    if(!is_array($array))
+        return null;
+    elseif (!count($array))
+        return array();
+    else
+    return array_intersect_key($array,array_unique(array_map(strtolower,$array)));
 }
 
 
@@ -374,3 +457,4 @@ if ($nextstep==2) {
 
 
 </div> <!-- import1 -->
+
